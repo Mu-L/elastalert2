@@ -1844,7 +1844,19 @@ If there's no open (i.e. unresolved) incident with this key, a new one will be c
 
 ``pagerduty_incident_key_args``: If set, and ``pagerduty_incident_key`` is a formattable string, ElastAlert 2 will format the incident key based on the provided array of fields from the rule or match.
 
-``pagerduty_proxy``: By default ElastAlert 2 will not use a network proxy to send notifications to PagerDuty. Set this option using ``hostname:port`` if you need to use a proxy. only supports https.
+``pagerduty_proxy``: By default ElastAlert 2 will not use a network proxy to send notifications to PagerDuty. Set this option to the proxy URL, for example ``http://proxy.example.com:8080``, if you need to use a proxy. Only HTTPS PagerDuty requests are supported. Basic proxy authentication can be configured by embedding the credentials in the URL, for example ``http://username:password@proxy.example.com:8080``.
+
+``pagerduty_proxy_login``: Optional username for NTLM proxy authentication. Both this option and ``pagerduty_proxy_pass`` must be set to enable NTLM. Use the ``DOMAIN\username`` format when the proxy requires a Windows domain. In YAML, use single quotes around a username containing a backslash.
+
+``pagerduty_proxy_pass``: Optional password for NTLM proxy authentication. Both this option and ``pagerduty_proxy_login`` must be set to enable NTLM.
+
+For example:
+
+.. code-block:: yaml
+
+    pagerduty_proxy: http://proxy.example.com:8080
+    pagerduty_proxy_login: 'DOMAIN\username'
+    pagerduty_proxy_pass: '<password>'
 
 ``pagerduty_ca_certs``: Set this option to ``True`` or a path to a CA cert bundle or directory (eg: ``/etc/ssl/certs/ca-certificates.crt``) to validate the SSL certificate.
 

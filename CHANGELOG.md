@@ -4,7 +4,7 @@
 - TBD
 
 ## New features
-- TBD
+- Add NTLM authentication support for PagerDuty HTTPS proxies ([discussion #1762](https://github.com/jertel/elastalert2/discussions/1762)).
 
 ## Other changes
 - TBD

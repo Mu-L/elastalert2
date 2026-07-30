@@ -1,9 +1,11 @@
 import json
 import requests
 
+from Cryptodome.Hash import MD4
 from elastalert.util import EAException, lookup_es_key, elastalert_logger
 from elastalert.alerts import Alerter, DateTimeEncoder
 from requests import RequestException
+from requests_ntlm2 import HttpNtlmAdapter
 
 
 class PagerDutyAlerter(Alerter):
@@ -18,8 +20,15 @@ class PagerDutyAlerter(Alerter):
         self.pagerduty_incident_key_args = self.rule.get('pagerduty_incident_key_args', None)
         self.pagerduty_event_type = self.rule.get('pagerduty_event_type', 'trigger')
         self.pagerduty_proxy = self.rule.get('pagerduty_proxy', None)
+        self.pagerduty_proxy_login = self.rule.get('pagerduty_proxy_login', None)
+        self.pagerduty_proxy_password = self.rule.get('pagerduty_proxy_pass', None)
         self.pagerduty_ca_certs = self.rule.get('pagerduty_ca_certs')
         self.pagerduty_ignore_ssl_errors = self.rule.get('pagerduty_ignore_ssl_errors', False)
+
+        if bool(self.pagerduty_proxy_login) != bool(self.pagerduty_proxy_password):
+            raise EAException('pagerduty_proxy_login and pagerduty_proxy_pass must be specified together')
+        if self.pagerduty_proxy_login and not self.pagerduty_proxy:
+            raise EAException('pagerduty_proxy must be specified when using PagerDuty NTLM proxy authentication')
 
         self.pagerduty_api_version = self.rule.get('pagerduty_api_version', 'v1')
         self.pagerduty_v2_payload_class = self.rule.get('pagerduty_v2_payload_class', '')
@@ -99,14 +108,25 @@ class PagerDutyAlerter(Alerter):
 
         if self.pagerduty_ignore_ssl_errors:
             requests.packages.urllib3.disable_warnings()
+
+        post_args = {
+            'data': json.dumps(payload, cls=DateTimeEncoder, ensure_ascii=False).encode("utf-8"),
+            'headers': headers,
+            'proxies': proxies,
+            'verify': verify
+        }
+
         try:
-            response = requests.post(
-                self.url,
-                data=json.dumps(payload, cls=DateTimeEncoder, ensure_ascii=False).encode("utf-8"),
-                headers=headers,
-                proxies=proxies,
-                verify=verify
-            )
+            if self.pagerduty_proxy_login:
+                with requests.Session() as session:
+                    # ntlm-auth uses OpenSSL's disabled-by-default MD4 implementation for plaintext
+                    # passwords. Pre-hashing through Cryptodome keeps NTLM functional with OpenSSL 3.
+                    nt_hash = MD4.new(self.pagerduty_proxy_password.encode('utf-16-le')).hexdigest()
+                    ntlm_hashes = 'aad3b435b51404eeaad3b435b51404ee:%s' % nt_hash
+                    session.mount('https://', HttpNtlmAdapter(self.pagerduty_proxy_login, ntlm_hashes))
+                    response = session.post(self.url, **post_args)
+            else:
+                response = requests.post(self.url, **post_args)
             response.raise_for_status()
         except RequestException as e:
             raise EAException("Error posting to pagerduty: %s" % e)
