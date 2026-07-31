@@ -4,10 +4,21 @@
 - TBD
 
 ## New features
-- Add NTLM authentication support for PagerDuty HTTPS proxies ([discussion #1762](https://github.com/jertel/elastalert2/discussions/1762)).
+- TBD
 
 ## Other changes
 - TBD
+
+# 2.32.0
+
+## Breaking changes
+- None
+
+## New features
+- [PagerDuty] Add NTLM authentication support for HTTPS proxies - [#1772](https://github.com/jertel/elastalert2/pull/1772) - @sauravnz
+
+## Other changes
+- None
 
 # 2.31.0
 
