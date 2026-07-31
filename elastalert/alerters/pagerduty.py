@@ -8,6 +8,11 @@ from requests import RequestException
 from requests_ntlm2 import HttpNtlmAdapter
 
 
+# requests-ntlm2 expects "LM:NT"; this conventional empty LM hash fills the unused LM field.
+LM_HASH_PLACEHOLDER = 'aad3b435b51404eeaad3b435b51404ee'
+PAGERDUTY_API_BASE_URL = 'https://events.pagerduty.com/'
+
+
 class PagerDutyAlerter(Alerter):
     """ Create an incident on PagerDuty for each alert """
     required_options = frozenset(['pagerduty_service_key', 'pagerduty_client_name'])
@@ -44,9 +49,9 @@ class PagerDutyAlerter(Alerter):
         self.pagerduty_v2_payload_include_all_info = self.rule.get('pagerduty_v2_payload_include_all_info', True)
 
         if self.pagerduty_api_version == 'v2':
-            self.url = 'https://events.pagerduty.com/v2/enqueue'
+            self.url = '%sv2/enqueue' % PAGERDUTY_API_BASE_URL
         else:
-            self.url = 'https://events.pagerduty.com/generic/2010-04-15/create_event.json'
+            self.url = '%sgeneric/2010-04-15/create_event.json' % PAGERDUTY_API_BASE_URL
 
     def alert(self, matches):
         body = self.create_alert_body(matches)
@@ -122,8 +127,9 @@ class PagerDutyAlerter(Alerter):
                     # ntlm-auth uses OpenSSL's disabled-by-default MD4 implementation for plaintext
                     # passwords. Pre-hashing through Cryptodome keeps NTLM functional with OpenSSL 3.
                     nt_hash = MD4.new(self.pagerduty_proxy_password.encode('utf-16-le')).hexdigest()
-                    ntlm_hashes = 'aad3b435b51404eeaad3b435b51404ee:%s' % nt_hash
-                    session.mount('https://', HttpNtlmAdapter(self.pagerduty_proxy_login, ntlm_hashes))
+                    ntlm_hashes = '%s:%s' % (LM_HASH_PLACEHOLDER, nt_hash)
+                    session.mount(PAGERDUTY_API_BASE_URL,
+                                  HttpNtlmAdapter(self.pagerduty_proxy_login, ntlm_hashes))
                     response = session.post(self.url, **post_args)
             else:
                 response = requests.post(self.url, **post_args)

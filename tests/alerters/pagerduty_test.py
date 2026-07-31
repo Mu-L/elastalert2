@@ -630,7 +630,7 @@ def test_pagerduty_alerter_proxy_with_ntlm_auth():
         'user',
         'aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c'
     )
-    session.mount.assert_called_once_with('https://', mock_ntlm_adapter.return_value)
+    session.mount.assert_called_once_with('https://events.pagerduty.com/', mock_ntlm_adapter.return_value)
     session.post.assert_called_once_with(alert.url, data=mock.ANY, headers={'content-type': 'application/json'},
                                          proxies={'https': 'http://proxy.url'}, verify=True)
     assert expected_data == json.loads(session.post.call_args_list[0][1]['data'])
