@@ -588,6 +588,76 @@ def test_pagerduty_alerter_proxy():
     assert expected_data == json.loads(mock_post_request.call_args_list[0][1]['data'])
 
 
+def test_pagerduty_alerter_proxy_with_ntlm_auth():
+    rule = {
+        'name': 'Test PD Rule',
+        'type': 'any',
+        'alert_subject': '{0} kittens',
+        'alert_subject_args': ['somefield'],
+        'pagerduty_service_key': 'magicalbadgers',
+        'pagerduty_event_type': 'trigger',
+        'pagerduty_client_name': 'ponies inc.',
+        'pagerduty_incident_key': 'custom {0}',
+        'pagerduty_incident_key_args': ['someotherfield'],
+        'pagerduty_proxy': 'http://proxy.url',
+        'pagerduty_proxy_login': 'user',
+        'pagerduty_proxy_pass': 'password',
+        'alert': []
+    }
+    rules_loader = FileRulesLoader({})
+    rules_loader.load_modules(rule)
+    alert = PagerDutyAlerter(rule)
+    match = {
+        '@timestamp': '2017-01-01T00:00:00',
+        'somefield': 'Stinkiest',
+        'someotherfield': 'foobarbaz'
+    }
+    with mock.patch('elastalert.alerters.pagerduty.HttpNtlmAdapter') as mock_ntlm_adapter, \
+            mock.patch('requests.Session') as mock_session:
+        session = mock_session.return_value.__enter__.return_value
+        alert.alert([match])
+    expected_data = {
+        'client': 'ponies inc.',
+        'description': 'Stinkiest kittens',
+        'details': {
+            'information': 'Test PD Rule\n\n@timestamp: 2017-01-01T00:00:00\nsomefield: Stinkiest\nsomeotherfield: foobarbaz\n'
+        },
+        'event_type': 'trigger',
+        'incident_key': 'custom foobarbaz',
+        'service_key': 'magicalbadgers',
+    }
+    mock_ntlm_adapter.assert_called_once_with(
+        'user',
+        'aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c'
+    )
+    session.mount.assert_called_once_with('https://events.pagerduty.com/', mock_ntlm_adapter.return_value)
+    session.post.assert_called_once_with(alert.url, data=mock.ANY, headers={'content-type': 'application/json'},
+                                         proxies={'https': 'http://proxy.url'}, verify=True)
+    assert expected_data == json.loads(session.post.call_args_list[0][1]['data'])
+
+
+@pytest.mark.parametrize('proxy_options, error_message', [
+    ({'pagerduty_proxy': 'http://proxy.url', 'pagerduty_proxy_login': 'user'},
+     'pagerduty_proxy_login and pagerduty_proxy_pass must be specified together'),
+    ({'pagerduty_proxy': 'http://proxy.url', 'pagerduty_proxy_pass': 'password'},
+     'pagerduty_proxy_login and pagerduty_proxy_pass must be specified together'),
+    ({'pagerduty_proxy_login': 'user', 'pagerduty_proxy_pass': 'password'},
+     'pagerduty_proxy must be specified when using PagerDuty NTLM proxy authentication'),
+])
+def test_pagerduty_alerter_ntlm_proxy_requires_complete_configuration(proxy_options, error_message):
+    rule = {
+        'name': 'Test PD Rule',
+        'type': 'any',
+        'pagerduty_service_key': 'magicalbadgers',
+        'pagerduty_client_name': 'ponies inc.',
+        'alert': [],
+        **proxy_options
+    }
+
+    with pytest.raises(EAException, match=error_message):
+        PagerDutyAlerter(rule)
+
+
 def test_pagerduty_ea_exception():
     with pytest.raises(EAException) as ea:
         rule = {

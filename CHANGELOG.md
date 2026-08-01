@@ -4,10 +4,10 @@
 - TBD
 
 ## New features
-- TBD
+- [PagerDuty] Add NTLM authentication support for HTTPS proxies - [#1772](https://github.com/jertel/elastalert2/pull/1772) - @sauravnz
 
 ## Other changes
-- TBD
+- None
 
 # 2.31.0
 
